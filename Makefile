@@ -7,8 +7,7 @@ COMPILER = /usr/local/bin/closure-compiler.jar
 ICH = ICanHaz.js
 ICH_MIN = ICanHaz.min.js
 
-BASE_FILES = source/mustache.js \
-	source/main.js
+BASE_FILES = source/main.js
 
 all: normal min
 
