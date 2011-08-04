@@ -8,7 +8,8 @@ More info at: http://icanhazjs.com
 */
 /*global jQuery  */
 function ICanHaz() {
-    var self = this;
+    var self = this,
+    	partialPrefix = 'partial::';
     self.VERSION = "0.9";
     self.templates = {};
     self.partials = {};
@@ -43,23 +44,44 @@ function ICanHaz() {
     // be trimmed. If you want whitespace around a partial, add it in the parent, 
     // not the partial. Or do it explicitly using <br/> or &nbsp;
     // 
-    // Also grabs non-script elements with an ID and the "tmpl" class, so that 
+    // Also grabs non-script elements with an ID and the "mustache" class, so that 
     // you can have nested templates to make template design easier
-    self.grabTemplates = function (context) {  
+    self.grabTemplates = function (context, callback) {  
+    	if ($.isFunction(context)) {
+    		callback = context;
+    		context = null;
+    	}
     	//allow the templates to be grabbed from a specific document or element
-    	!context && (context = document);
-        $('script[type="text/html"],[id].tmpl', context).each(function (a, b) {
+    	context = context || document;
+        $('script[type="text/html"]:not([src]),[id].mustache', context).each(function (a, b) {
             var script = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
-                text = (''.trim) ? script.html().trim() : $.trim(script.html());
+            	text = (''.trim) ? script.html().trim() : $.trim(script.html());
             
             self[script.hasClass('partial') ? 'addPartial' : 'addTemplate'](script.attr('id'), text);
             script.remove();
         });
+        //if script tags have a "src" attribute, add them to a URL map
+        var urls;
+        $('script[type="text/html"][src]').each(function (a, b) {
+        	var script = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
+        		src = script.src,
+        		prefix = script.hasClass('partial') ? partialPrefix : '';
+        	urls = urls || {};
+        	//create a map where the name is the ID or base filename
+        	urls[prefix + (script.id || script.src)] = src;
+        });
+        //if there are URLs in the map, load templates via ajax
+        if (urls) {
+        	self.loadTemplates(urls, callback);
+        } else {
+        	//fire callback since nothing was loaded async
+        	callback && callback();
+        }
     };
     
     //accepts a single URL, an array of URLs, or an object map.  Names in map 
     //are not used for anything
-    //assumes the HTML loaded will have script tags or "tmpl" classes to parse
+    //assumes the HTML loaded will have script tags or "mustache" classes to parse
     self.loadTemplates = function(urls, callback) {
     	if (typeof urls === "string") {
     		urls = [urls];
@@ -75,12 +97,22 @@ function ICanHaz() {
     			}
     		};
     	//goes through each url, loading html but doesn't account for errors
-    	$.each(urls, function() {
+    	$.each(urls, function(name, url) {
     		urlCount++;
-    		$.get('ajax/test.html', function(html) {
+    		$.get(url, function(html) {
     			completeCount++;
     			context = $(html);
-    			self.grabTemplates(context);
+    			var count = self.grabTemplates(context);
+    			if (count === 0) {
+    				if (name === url) {
+    					name = url.match(/([^\\\/]+)\.[^\.]+(?:[\?#]|$)/)[1];
+    				}
+    				if (name.substr(0, partialPrefix.length) == partialPrefix) {
+    					self.addPartial(name.substr(partialPrefix.length), html);
+    				} else {
+        				self.addTemplate(name, html);
+    				}
+    			}
     			finalize();
     		});
     	});
