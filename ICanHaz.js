@@ -8,8 +8,7 @@ More info at: http://icanhazjs.com
 */
 /*global jQuery  */
 function ICanHaz() {
-    var self = this,
-    	partialPrefix = 'partial::';
+    var self = this;
     self.VERSION = "0.9";
     self.templates = {};
     self.partials = {};
@@ -19,7 +18,7 @@ function ICanHaz() {
     // If you want a different template, it should have a different name.
     self.addTemplate = function (name, templateString) {
         if (self[name]) throw "Invalid name: " + name + ".";
-        if (self.templates[name]) throw "Template \" + name + \" exists";
+        if (self.templates[name]) throw "Template \"" + name + "\" exists";
         
         self.templates[name] = templateString;
         self[name] = function (data, raw) {
@@ -32,7 +31,7 @@ function ICanHaz() {
     // public function for adding partials
     self.addPartial = function (name, templateString) {
         if (self.partials[name]) {
-            throw "Partial \" + name + \" exists";
+            throw "Partial \"" + name + "\" exists";
         } else {
             self.partials[name] = templateString;
         }
@@ -53,65 +52,117 @@ function ICanHaz() {
     	}
     	//allow the templates to be grabbed from a specific document or element
     	context = context || document;
-        $('script[type="text/html"]:not([src]),[id].mustache', context).each(function (a, b) {
-            var script = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
-            	text = (''.trim) ? script.html().trim() : $.trim(script.html());
+    	
+    	var nodes = $('script[type="text/html"],.mustache', context),
+    		queue = [],
+    		batch = [];
+
+    	//add templates to queue and remove nodes from DOM before getting HTML,
+    	//to account for nested templates
+    	nodes.each(function (a, b) {
+            var node = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
+            	name = node.attr('id') || node.attr('name'),
+        		src = node.attr('src'),
+        		script = (node[0].tagName == "SCRIPT"),
+        		partial = node.hasClass('partial'),
+        		include = !script && node.hasClass('include'),
+        		keep = !include && !script && node.hasClass('keep'),
+        		output = partial && !keep && node.hasClass('output');
             
-            self[script.hasClass('partial') ? 'addPartial' : 'addTemplate'](script.attr('id'), text);
-            script.remove();
+            //the "output" class indicates a partial placeholder should replace the nested template
+            output && node.after(document.createTextNode("{{>" + name + "}}"));
+            
+            queue.push({
+            	partial: partial,
+            	name: name || src, //if script[src], use src if no id
+            	node: src || node, //if script[src], use src of template to get template dynamically
+            	include: include,
+            	keep: keep
+            });
+            
+            //clean up styles for elements that will be in DOM
+            if (include || keep) {
+    			node.removeClass("mustache partial output include keep");
+    			!node.attr("class") && node.removeAttr("class");
+            }
+            //remove if "script" tag or not flagged to "keep" the node as a placeholder in the DOM
+            if (script || !keep) {
+            	node.removeAttr("id").removeAttr("name").remove();
+            }
         });
-        //if script tags have a "src" attribute, add them to a URL map
-        var urls;
-        $('script[type="text/html"][src]').each(function (a, b) {
-        	var script = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
-        		src = script.src,
-        		prefix = script.hasClass('partial') ? partialPrefix : '';
-        	urls = urls || {};
-        	//create a map where the name is the ID or base filename
-        	urls[prefix + (script.id || script.src)] = src;
+
+    	//go through nodes in reverse document order, 
+    	//hopefully that will make things come out alright when nested
+        $.each(queue.reverse(), function(index, item) {
+        	if (typeof item.node == "string") {
+        		//add template URL to batch
+        		batch.push({
+        			name: item.name,
+        			url: item.node,
+        			partial: item.partial
+        		});
+        	} else {
+    			//get inline template HTML, add parent element if need to "include" template container
+            	var html = $.trim(item.include ? $('<div/>').append(item.node).html() : item.node.html());
+            	
+                self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
+                
+                //if keeping template node, clear out contents
+                item.keep && item.node.empty();
+        	}
         });
+        
         //if there are URLs in the map, load templates via ajax
-        if (urls) {
-        	self.loadTemplates(urls, callback);
-        } else {
+        if (batch.length) {
+        	self.loadTemplates(batch, callback);
+        } else if (callback) {
         	//fire callback since nothing was loaded async
-        	callback && callback();
+        	callback();
         }
+        //return the number of static templates found
+        return nodes.length - batch.length;
     };
     
-    //accepts a single URL, an array of URLs, or an object map.  Names in map 
-    //are not used for anything
+    //accepts an array or single element that is a URL or config object map
+    //object maps are in the format { name: "template name", url: "http://...", partial: true }
     //assumes the HTML loaded will have script tags or "mustache" classes to parse
     self.loadTemplates = function(urls, callback) {
-    	if (typeof urls === "string") {
-    		urls = [urls];
-    	}
+    	//create array if not already and remap properties
+		urls = $.map($.isArray(urls) ? urls : [urls], function(item) {
+			if (typeof item == "string") {
+				item = {
+					//get name from filename base
+					name: item,
+					url: item,
+					partial: false
+				};
+			}
+			//use base filename for when it's a URL
+			item.name = item.name.match(/([^\\\/]+)\.[^\.]+(?:[\?#]|$)/)[1];
+			return item;
+		});
+		
     	var urlCount = 0,
     		completeCount = 0,
     		processed = false,
     		//compares the number of urls to the number of completions
     		//then fires callback to user
     		finalize = function() {
-    			if (proccessed && urlCount === completeCount) {
+    			if (processed && urlCount === completeCount) {
     				callback && callback();
     			}
     		};
     	//goes through each url, loading html but doesn't account for errors
-    	$.each(urls, function(name, url) {
+    	$.each(urls, function(index, item) {
+    		//have to count here because we don't know how many there are yet
     		urlCount++;
-    		$.get(url, function(html) {
+    		$.get(item.url, function(html) {
     			completeCount++;
-    			context = $(html);
+    			//need to wrap in DIV so selectors find elements
+    			context = $('<div/>').html(html);
     			var count = self.grabTemplates(context);
     			if (count === 0) {
-    				if (name === url) {
-    					name = url.match(/([^\\\/]+)\.[^\.]+(?:[\?#]|$)/)[1];
-    				}
-    				if (name.substr(0, partialPrefix.length) == partialPrefix) {
-    					self.addPartial(name.substr(partialPrefix.length), html);
-    				} else {
-        				self.addTemplate(name, html);
-    				}
+    				self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
     			}
     			finalize();
     		});
