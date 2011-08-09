@@ -13,12 +13,21 @@ function ICanHaz() {
     self.templates = {};
     self.partials = {};
     
+    //helper function to render a template that may have a name 
+    //that is not a valid method name. So, instead of calling:
+    //	ich["template-name"](data, raw);
+    //you would call, which is simply easier to read:
+    //	ich.render("template-name", data, raw);
+    self.render = function(name, data, raw) {
+        return (self[name]) ? self[name].apply(self, [data, raw]) : "";
+    }
+    
     // public function for adding templates
     // We're enforcing uniqueness to avoid accidental template overwrites.
     // If you want a different template, it should have a different name.
     self.addTemplate = function (name, templateString) {
-        if (self[name]) throw "Invalid name: " + name + ".";
         if (self.templates[name]) throw "Template \"" + name + "\" exists";
+        if (self[name]) throw "Invalid name: " + name + ".";
         
         self.templates[name] = templateString;
         self[name] = function (data, raw) {
@@ -123,6 +132,36 @@ function ICanHaz() {
         return nodes.length - batch.length;
     };
     
+    //assumes this is a URL, path, or filename to use as a template name
+    self.formatName = function(input) {
+    	if (input) {
+	    	//regex captures are: [path, filename, pathInfo]
+	    	var matches = input.match(/([^\?#\\\/=]+?)[\\\/]*([\?#].*)?$/);
+	    	console.log("matches:", matches)
+	    	//remove any trailing file extension
+			return matches[1].replace(/\.[^\.]*$/, "")
+			//find non-method characters and remove them, 
+			//at the same time capitalizing any trailing alpha characters 
+			//to create a camel-case name
+			.replace(/[^a-zA-Z0-9_]+(.|$)/g, function(match, letter, index, path) { 
+				console.log(arguments)
+				//test to see if the char following non-method name chars 
+				//is a letter
+				if (/[a-z]/i.test(letter)) {
+					//if this is the first letter of the name, leave case, 
+					//otherwise capitalize
+					return (index == 0) ? letter : letter.toUpperCase(); 
+				}
+				//return an empty string if non-method chars where found 
+				//without any trailing letters
+				return ""; 
+			//lastly, after camel-casing, 
+			//remove any leading numbers 
+			});//.replace(/^\d+/, "");
+    	}
+    	return "";
+    }
+    
     //accepts an array or single element that is a URL or config object map
     //object maps are in the format { name: "template name", url: "http://...", partial: true }
     //assumes the HTML loaded will have script tags or "mustache" classes to parse
@@ -137,8 +176,8 @@ function ICanHaz() {
 					partial: false
 				};
 			}
-			//use base filename for when it's a URL
-			item.name = item.name.match(/([^\\\/]+)\.[^\.]+(?:[\?#]|$)/)[1];
+			//make sure the name is a valid method name
+			item.name = self.formatName(item.name);
 			return item;
 		});
 		
@@ -161,9 +200,15 @@ function ICanHaz() {
     			//need to wrap in DIV so selectors find elements
     			context = $('<div/>').html(html);
     			var count = self.grabTemplates(context);
-    			if (count === 0) {
-    				self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
-    			}
+    			//if (count === 0) {
+    			//	self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
+    			//} else {
+    				//TODO: should this automatically add the remaining HTML as a template?
+    				html = $.trim(context.html());
+    				if (html) {
+    					self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
+    				}
+    			//}
     			finalize();
     		});
     	});
