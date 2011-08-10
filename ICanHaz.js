@@ -70,10 +70,11 @@ function ICanHaz() {
     	//to account for nested templates
     	nodes.each(function (a, b) {
             var node = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
-            	name = node.attr('id') || node.attr('name'),
+            	name = self.formatName(node.attr('id') || node.attr('name')),
         		src = node.attr('src'),
         		script = (node[0].tagName == "SCRIPT"),
         		partial = node.hasClass('partial'),
+        		embed = script && !partial && node.hasClass('embed'),
         		include = !script && node.hasClass('include'),
         		keep = !include && !script && node.hasClass('keep'),
         		output = partial && !keep && node.hasClass('output');
@@ -83,19 +84,22 @@ function ICanHaz() {
             
             queue.push({
             	partial: partial,
-            	name: name || src, //if script[src], use src if no id
-            	node: src || node, //if script[src], use src of template to get template dynamically
+            	name: name || self.formatName(src), //if script[src], use src if no id
+            	node: node, //if script[src], use src of template to get template dynamically
+            	src: src,
             	include: include,
-            	keep: keep
+            	keep: keep,
+            	embed: embed
             });
             
             //clean up styles for elements that will be in DOM
-            if (include || keep) {
-    			node.removeClass("mustache partial output include keep");
+            if (include || keep || embed) {
+    			node.removeClass("mustache partial output include keep embed");
     			!node.attr("class") && node.removeAttr("class");
             }
             //remove if "script" tag or not flagged to "keep" the node as a placeholder in the DOM
-            if (script || !keep) {
+            //but don't remove if "embed" is specified, which means we replace the script tag with the HTMl contents
+            if ((script && !embed) || (!script && !keep)) {
             	node.removeAttr("id").removeAttr("name").remove();
             }
         });
@@ -103,12 +107,14 @@ function ICanHaz() {
     	//go through nodes in reverse document order, 
     	//hopefully that will make things come out alright when nested
         $.each(queue.reverse(), function(index, item) {
-        	if (typeof item.node == "string") {
+        	if (item.src) {
         		//add template URL to batch
         		batch.push({
         			name: item.name,
-        			url: item.node,
-        			partial: item.partial
+        			url: item.src,
+        			partial: item.partial,
+        			node: item.node,
+        			embed: item.embed
         		});
         	} else {
     			//get inline template HTML, add parent element if need to "include" template container
@@ -137,14 +143,12 @@ function ICanHaz() {
     	if (input) {
 	    	//regex captures are: [path, filename, pathInfo]
 	    	var matches = input.match(/([^\?#\\\/=]+?)[\\\/]*([\?#].*)?$/);
-	    	console.log("matches:", matches)
 	    	//remove any trailing file extension
 			return matches[1].replace(/\.[^\.]*$/, "")
 			//find non-method characters and remove them, 
 			//at the same time capitalizing any trailing alpha characters 
 			//to create a camel-case name
-			.replace(/[^a-zA-Z0-9_]+(.|$)/g, function(match, letter, index, path) { 
-				console.log(arguments)
+			.replace(/[^a-zA-Z0-9_]+(.|$)/g, function(match, letter, index, path) {
 				//test to see if the char following non-method name chars 
 				//is a letter
 				if (/[a-z]/i.test(letter)) {
@@ -206,7 +210,14 @@ function ICanHaz() {
     				//TODO: should this automatically add the remaining HTML as a template?
     				html = $.trim(context.html());
     				if (html) {
-    					self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
+    					//if flagged to embed, works like a server-side include, 
+    					//where the placeholder (script tag) is replaced with the HTML 
+    					//content at runtime after processing nested templates
+    					if (item.embed) {
+    						item.node.replaceWith(html);
+    					} else {
+    						self[item.partial ? 'addPartial' : 'addTemplate'](item.name, html);
+    					}
     				}
     			//}
     			finalize();
