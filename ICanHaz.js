@@ -70,23 +70,23 @@ function ICanHaz() {
     	//to account for nested templates
     	nodes.each(function (a, b) {
             var node = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
-            	name = self.formatName(node.attr('id') || node.attr('name')),
         		src = node.attr('src'),
-        		script = (node[0].tagName == "SCRIPT"),
-        		partial = node.hasClass('partial'),
-        		embed = script && !partial && node.hasClass('embed'),
-        		include = !script && node.hasClass('include'),
-        		keep = !include && !script && node.hasClass('keep'),
-        		output = partial && !keep && node.hasClass('output');
+            	name = self.formatName(node.attr('id') || node.attr('name') || src), //if script[src], use src if no id
+        		is_script = (node[0].tagName == "SCRIPT"),
+        		is_partial = node.hasClass('partial'),
+        		embed = is_script && !is_partial && node.hasClass('embed'),
+        		include = !is_script && node.hasClass('include'),
+        		keep = !include && !is_script && node.hasClass('keep'),
+        		output = is_partial && !keep && node.hasClass('output');
             
             //the "output" class indicates a partial placeholder should replace the nested template
             output && node.after(document.createTextNode("{{>" + name + "}}"));
             
             queue.push({
-            	partial: partial,
-            	name: name || self.formatName(src), //if script[src], use src if no id
+            	partial: is_partial,
+            	name: name, 
             	node: node, //if script[src], use src of template to get template dynamically
-            	src: src,
+            	url: src,
             	include: include,
             	keep: keep,
             	embed: embed
@@ -97,9 +97,9 @@ function ICanHaz() {
     			node.removeClass("mustache partial output include keep embed");
     			!node.attr("class") && node.removeAttr("class");
             }
-            //remove if "script" tag or not flagged to "keep" the node as a placeholder in the DOM
+            //remove if "script" tag, or not flagged to "keep" the node as a placeholder in the DOM, 
             //but don't remove if "embed" is specified, which means we replace the script tag with the HTMl contents
-            if ((script && !embed) || (!script && !keep)) {
+            if ((script && !embed) || (!is_script && !keep)) {
             	node.removeAttr("id").removeAttr("name").remove();
             }
         });
@@ -107,11 +107,11 @@ function ICanHaz() {
     	//go through nodes in reverse document order, 
     	//hopefully that will make things come out alright when nested
         $.each(queue.reverse(), function(index, item) {
-        	if (item.src) {
+        	if (item.url) {
         		//add template URL to batch
         		batch.push({
         			name: item.name,
-        			url: item.src,
+        			url: item.url,
         			partial: item.partial,
         			node: item.node,
         			embed: item.embed
