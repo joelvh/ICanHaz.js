@@ -2,7 +2,7 @@
 ICanHaz.js version 0.9 -- by @HenrikJoreteg
 More info at: http://icanhazjs.com
 */
-(function ($) {
+(function ($, Mustache) {
 /*!
   ICanHaz.js -- by @HenrikJoreteg
 */
@@ -99,7 +99,7 @@ function ICanHaz() {
             }
             //remove if "script" tag, or not flagged to "keep" the node as a placeholder in the DOM, 
             //but don't remove if "embed" is specified, which means we replace the script tag with the HTMl contents
-            if ((script && !embed) || (!is_script && !keep)) {
+            if ((is_script && !embed) || (!is_script && !keep)) {
             	node.removeAttr("id").removeAttr("name").remove();
             }
         });
@@ -248,4 +248,4 @@ window.ich = new ICanHaz();
 $(function () {
     ich.grabTemplates();
 });
-})(window.jQuery || window.Zepto);
+})(window.jQuery || window.Zepto, Mustache);
