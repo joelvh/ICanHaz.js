@@ -65,22 +65,52 @@ function ICanHaz() {
     	var nodes = $('script[type="text/html"],.mustache', context),
     		queue = [],
     		batch = [];
+    		
+    		/*
+         * //partial; grabs linked content and removes script tag
+         * <script src="tmpl_partial.html" class="mustache partial"></script>
+         * 
+         * //partial; grabs linked content, removes script tag, and outputs a mustache partial reference ("swap")
+         * // e.g. replaces script tag with: {{>tmpl_partial}}
+         * <script src="tmpl_partial.html" class="mustache partial swap"></script>
+         * 
+         * //nested template; grabs linked content and outputs it in place of the script tag
+         * <script src="tmpl.html" class="mustache embled"></script>
+         * 
+         * //nested template; removes inner HTML of tag flagged as inline template, keeps tag ("keep")
+         * //removes ICanHaz.js classes, leaves ID
+         * <div id="inline_template" class="mustache keep">
+         *  <ul>
+         *  {{#items}}
+         *    <li><a href="{{link}}">{{name}}</a></li>
+         *  {{/items}}
+         *  </ul>
+         * </div>
+         * 
+         * //nested template; removes HTML including tag flagged as inline template ("include")
+         * //removes ICanHaz.js classes and ID
+         * <ul id="inline_template" class="mustache include">
+         *  {{#items}}
+         *    <li><a href="{{link}}">{{name}}</a></li>
+         *  {{/items}}
+         * </ul>
+    		 */
 
     	//add templates to queue and remove nodes from DOM before getting HTML,
     	//to account for nested templates
     	nodes.each(function (a, b) {
             var node = $((typeof a === 'number') ? b : a), // Zepto doesn't bind this
         		src = node.attr('src'),
-            	name = self.formatName(node.attr('id') || node.attr('name') || src), //if script[src], use src if no id
+            name = self.formatName(node.attr('id') || node.attr('name') || src), //if script[src], use src if no id
         		is_script = (node[0].tagName == "SCRIPT"),
         		is_partial = node.hasClass('partial'),
         		embed = is_script && !is_partial && node.hasClass('embed'),
         		include = !is_script && node.hasClass('include'),
         		keep = !include && !is_script && node.hasClass('keep'),
-        		output = is_partial && !keep && node.hasClass('output');
+        		swap = is_partial && !keep && node.hasClass('swap');
             
-            //the "output" class indicates a partial placeholder should replace the nested template
-            output && node.after(document.createTextNode("{{>" + name + "}}"));
+            //the "swap" class indicates a partial placeholder should replace the nested template
+            swap && node.after(document.createTextNode("{{>" + name + "}}"));
             
             queue.push({
             	partial: is_partial,
@@ -94,8 +124,8 @@ function ICanHaz() {
             
             //clean up styles for elements that will be in DOM
             if (include || keep || embed) {
-    			node.removeClass("mustache partial output include keep embed");
-    			!node.attr("class") && node.removeAttr("class");
+        			node.removeClass("mustache partial swap include keep embed");
+        			!node.attr("class") && node.removeAttr("class");
             }
             //remove if "script" tag, or not flagged to "keep" the node as a placeholder in the DOM, 
             //but don't remove if "embed" is specified, which means we replace the script tag with the HTMl contents
