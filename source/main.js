@@ -61,19 +61,30 @@ function ICanHaz() {
     		queue = [],
     		batch = [];
     		
-    		/*
-         * //partial; grabs linked content and removes script tag
+        /*
+         * //partial: grabs linked content and removes script tag
          * <script src="tmpl_partial.html" class="mustache partial"></script>
          * 
-         * //partial; grabs linked content, removes script tag, and outputs a mustache partial reference ("swap")
+         * //partial: grabs linked content, removes script tag, and outputs a mustache partial reference 
+         * //(as instructed by the "swap" CSS class)
          * // e.g. replaces script tag with: {{>tmpl_partial}}
          * <script src="tmpl_partial.html" class="mustache partial swap"></script>
          * 
-         * //nested template; grabs linked content and outputs it in place of the script tag
+         * //nested template: grabs linked content and outputs it in place of the script tag 
+         * //(as instructed by the "embed" CSS class)
          * <script src="tmpl.html" class="mustache embled"></script>
          * 
-         * //nested template; removes inner HTML of tag flagged as inline template, keeps tag ("keep")
-         * //removes ICanHaz.js classes, leaves ID
+         * //nested template: inline template identified by "mustache" CSS class, uses inner HTML as template, then removes tag
+         * <div id="inline_template" class="mustache">
+         *  <ul>
+         *  {{#items}}
+         *    <li><a href="{{link}}">{{name}}</a></li>
+         *  {{/items}}
+         *  </ul>
+         * </div>
+         * 
+         * //nested template: inline template identified by "mustache" CSS class (as instructed by the "keep" CSS class), 
+         * //uses inner HTML as template, but keeps tag in document after removing ICanHaz.js CSS classes
          * <div id="inline_template" class="mustache keep">
          *  <ul>
          *  {{#items}}
@@ -82,14 +93,14 @@ function ICanHaz() {
          *  </ul>
          * </div>
          * 
-         * //nested template; removes HTML including tag flagged as inline template ("include")
-         * //removes ICanHaz.js classes and ID
+         * //nested template: uses HTML including tag as template (as instructed by the "include" CSS class), 
+         * //then removes all HTML and ICanHaz.js classes and ID 
          * <ul id="inline_template" class="mustache include">
          *  {{#items}}
          *    <li><a href="{{link}}">{{name}}</a></li>
          *  {{/items}}
          * </ul>
-    		 */
+         */
 
     	//add templates to queue and remove nodes from DOM before getting HTML,
     	//to account for nested templates
