@@ -14,3 +14,63 @@ MIT Licensed
 ICanHaz.js includes janl's mustache.js (https://github.com/janl/mustache.js/). Much props to Chris Wanstrath for Mustache and Jan Lehnardt for porting it to JS.
 
 To get started, read the documentation: http://icanhazjs.com
+
+
+### Some enhancements by Joel Van Horn ###
+
+These were taken from inline javascript comments, so make sure to look at the javascript for the latest and greatest.
+
+/*
+*********************************************************
+*** partial: grabs "src" content and removes script tag from page
+* 
+* <script src="tmpl_partial.html" class="mustache partial"></script>
+* 
+*********************************************************
+*** partial: grabs "src" content, removes script tag from page, 
+***          and outputs a mustache partial reference (as instructed by the "swap" CSS class)
+***          e.g. replaces script tag with: {{>tmpl_partial}}
+* 
+* <script src="tmpl_partial.html" class="mustache partial swap"></script>
+* 
+*********************************************************
+*** nested template: grabs "src" content and outputs it in place of the script tag 
+***                  (as instructed by the "embed" CSS class)
+* 
+* <script src="tmpl.html" class="mustache embled"></script>
+* 
+*********************************************************
+*** nested template: inline template identified by "mustache" CSS class, 
+***                  uses inner HTML as template, then removes tag
+* 
+* <div id="inline_template" class="mustache">
+*  <ul>
+*  {{#items}}
+*    <li><a href="{{link}}">{{name}}</a></li>
+*  {{/items}}
+*  </ul>
+* </div>
+* 
+*********************************************************
+*** nested template: inline template identified by "mustache" CSS class (as instructed by the "keep" CSS class), 
+***                  uses inner HTML as template, but keeps tag in document after removing ICanHaz.js CSS classes
+* 
+* <div id="inline_template" class="mustache keep">
+*  <ul>
+*  {{#items}}
+*    <li><a href="{{link}}">{{name}}</a></li>
+*  {{/items}}
+*  </ul>
+* </div>
+* 
+*********************************************************
+*** nested template: uses HTML including tag as template (as instructed by the "include" CSS class), 
+*                    then removes all HTML and ICanHaz.js classes and ID 
+* 
+* <ul id="inline_template" class="mustache include">
+*  {{#items}}
+*    <li><a href="{{link}}">{{name}}</a></li>
+*  {{/items}}
+* </ul>
+* 
+*/
